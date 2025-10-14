@@ -1,0 +1,31 @@
+﻿{
+  "project": "Event_Recap",
+  "variant": "deterministic",
+  "seed": 42,
+  "max_duration": 60,
+  "clip_min": 1.2,
+  "clip_max": 4.0,
+  "target_range": [2.0, 3.5],
+  "weights": {
+    "audio_peak": 0.40,
+    "motion": 0.30,
+    "faces": 0.20,
+    "scene_novelty": 0.08,
+    "brightness_flash": 0.02
+  },
+  "diversity": {
+    "min_gap_same_cam": 3.0,
+    "max_per_cam_ratio": 0.5
+  },
+  "branding": {
+    "logo_path": "%OneDrive%/Desktop/GPT_Mini_AMP/_assets/logo.png",
+    "logo_corner": "bottom_right",
+    "logo_size_px": 64,
+    "safe_area": 0.8,
+    "intro_path": null,
+    "outro_path": null,
+    "lut_path": null,
+    "fonts": []
+  },
+  "deliverables": ["9:16", "1:1", "16:9"]
+}

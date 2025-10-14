@@ -1,0 +1,8 @@
+# outputs & canary artifacts
+_outputs/
+*_canary*.mp4
+*_canary*.edl.json
+
+# local canary media
+clips_canary/*.mp4
+clips_canary/*.mov
