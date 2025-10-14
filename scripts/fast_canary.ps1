@@ -8,7 +8,17 @@
   [string]$LogPath = ".\_logs\fast_canary_$(Get-Date -Format yyyyMMdd_HHmmss).log"
 )
 
-$ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $false
+$ErrorActionPreference = "Continue"
+
+function Invoke-Native {
+  param([Parameter(Mandatory=$true)][string]$CmdLine)
+  Write-Host ">> $CmdLine"
+  $env:PYTHONWARNINGS = "ignore::UserWarning,ignore::FutureWarning"
+  cmd /c $CmdLine
+  if ($LASTEXITCODE -ne 0) { throw "Command failed (exit $LASTEXITCODE): $CmdLine" }
+}
+
 $logDir = Split-Path $LogPath -Parent
 if (-not $logDir) { $logDir = "." }
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -50,8 +60,7 @@ function Get-OutputPath([string]$stub, [string]$suffix) {
 }
 
 Write-Host "== Preflight =="
-python tools\preflight.py 2>&1 | Tee-Object -FilePath $LogPath -Append
-if ($LASTEXITCODE -ne 0) { throw "Preflight failed; see $LogPath" }
+Invoke-Native 'python tools\preflight.py'
 
 $ConfigFullPath = Resolve-ConfigPath $Config
 $TempConfig = $null
@@ -71,17 +80,13 @@ $edl2 = $Output2.Replace('.mp4', '.edl.json')
 $OutputVideo2 = Get-OutputPath $Output2 $ratioSuffix
 
 Write-Host "== Pipeline run 1 =="
-$env:FFMPEG_LOG_LEVEL = "error"
-python -m mini.cli pipeline --inputs $Inputs --config $ConfigFullPath --output $Output --seed $Seed --run --edl $edl1 2>&1 | Tee-Object -FilePath $LogPath -Append
-if ($LASTEXITCODE -ne 0) { throw "Pipeline run 1 failed; see $LogPath" }
+Invoke-Native ("python -m mini.cli pipeline --inputs `"{0}`" --config `"{1}`" --output `"{2}`" --seed {3} --run --edl `"{4}`"" -f $Inputs,$ConfigFullPath,$Output,$Seed,$edl1)
 
 Write-Host "== Pipeline run 2 =="
-python -m mini.cli pipeline --inputs $Inputs --config $ConfigFullPath --output $Output2 --seed $Seed --run --edl $edl2 2>&1 | Tee-Object -FilePath $LogPath -Append
-if ($LASTEXITCODE -ne 0) { throw "Pipeline run 2 failed; see $LogPath" }
+Invoke-Native ("python -m mini.cli pipeline --inputs `"{0}`" --config `"{1}`" --output `"{2}`" --seed {3} --run --edl `"{4}`"" -f $Inputs,$ConfigFullPath,$Output2,$Seed,$edl2)
 
 Write-Host "== Validate outputs =="
-python tools\validate_outputs.py --config $ConfigFullPath --edl1 $edl1 --edl2 $edl2 --vid1 $OutputVideo1 --vid2 $OutputVideo2 2>&1 | Tee-Object -FilePath $LogPath -Append
-if ($LASTEXITCODE -ne 0) { throw "Validation failed; see $LogPath" }
+Invoke-Native ("python tools\validate_outputs.py --config `"{0}`" --edl1 `"{1}`" --edl2 `"{2}`" --vid1 `"{3}`" --vid2 `"{4}`"" -f $ConfigFullPath,$edl1,$edl2,$OutputVideo1,$OutputVideo2)
 
 Write-Host "`n✅ Fast canary PASSED. Log: $LogPath"
 

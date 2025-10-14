@@ -1,0 +1,62 @@
+﻿name: AMP Mini CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows-ci:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install FFmpeg (choco)
+        run: |
+          choco install ffmpeg -y
+          ffmpeg -version
+          ffprobe -version
+        shell: pwsh
+
+      - name: Install deps
+        run: |
+          python -m pip install -U pip
+          pip install -r requirements.txt
+          pip install pytest
+        shell: pwsh
+
+      - name: Generate dummy CI clips
+        run: |
+          New-Item -ItemType Directory -Force -Path .\ci_clips | Out-Null
+          ffmpeg -y -f lavfi -i testsrc=size=1920x1080:rate=30 -f lavfi -i sine=f=440:sample_rate=48000 -t 5 -shortest .\ci_clips\cam1.mp4
+          ffmpeg -y -f lavfi -i testsrc2=size=1920x1080:rate=30 -f lavfi -i sine=f=880:sample_rate=48000 -t 6 -shortest .\ci_clips\cam2.mp4
+        shell: pwsh
+
+      - name: Run unit tests
+        run: pytest -q
+        shell: pwsh
+
+      - name: Fast canary (determinism, 20s/9:16)
+        run: |
+          $env:PYTHONWARNINGS = "ignore::UserWarning,ignore::FutureWarning"
+          .\scripts\fast_canary.ps1 `
+            -Inputs ".\ci_clips\*.mp4" `
+            -Config "config_gpt_mini_amp.json" `
+            -Output "recap_ci.mp4" `
+            -Seed 42 `
+            -Fast
+        shell: pwsh
+
+      - name: Upload artifacts (EDLs/MP4/logs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: amp-mini-ci-artifacts
+          path: |
+            *.edl.json
+            recap_ci*.mp4
+            _logs/**
